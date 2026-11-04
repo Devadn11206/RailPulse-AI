@@ -87,36 +87,64 @@ RailPulse AI addresses these challenges through a unified graph deep learning fr
 
 ## 5. System Architecture
 
-The following Mermaid diagram illustrates the architectural separation of data ingestion, graph representation learning, model serving, and frontend consumption:
+The RailPulse AI platform is structured into six clean, decoupled architectural layers spanning raw data ingestion to user presentation:
+
+<p align="center">
+  <img src="docs/architecture/railpulse_system_architecture.png" alt="RailPulse AI System Architecture Diagram" width="100%" />
+</p>
+<p align="center"><em>Figure 2: RailPulse AI 6-Layer System Architecture and Data Flow Diagram (Data Sources, Data Engineering, Graph Representation, ST-GATv2 Neural Core, Intelligence Services, and Serving / UI).</em></p>
+
+The interactive source code for this diagram is also maintained in editable Mermaid format at [`docs/architecture/railpulse_system_architecture.mmd`](docs/architecture/railpulse_system_architecture.mmd):
 
 ```mermaid
 flowchart TD
-    subgraph Data_Layer ["1. Data & Spatial Topology Layer"]
-        A1["GTFS Static Transit Feeds<br/>(Stops, Routes, Schedules)"] --> B1["Static Graph Builder<br/>(EVA IDs, WGS84 Coords, Track Edges)"]
-        A2["Historical Parquet Delay Stream<br/>(Arrival & Departure Delays)"] --> B2["Temporal Feature Builder<br/>(12-Step Lookback, Sin/Cos Encoders)"]
-        B1 & B2 --> C1["RailwayGraphDataset<br/>(Node features: [N, 88], Targets: [N, 3])"]
+    subgraph L1 ["1. Data Sources"]
+        D1["GTFS Railway Schedules"]
+        D2["Historical Delay Archives"]
+        D3["Weather Observations"]
     end
 
-    subgraph Neural_Core ["2. Spatio-Temporal Neural Network Core (ST-GATv2)"]
-        C1 --> D1["Feature Splitter<br/>(Static: [N, 4] | Temporal: [N, 12, 7])"]
-        D1 --> E1["Spatial Path: GATv2Conv Layers<br/>(4 Heads, return_attention_weights=True)"]
-        D1 --> E2["Temporal Path: 2-Layer GRU Encoder<br/>(hidden_dim=64, dropout=0.20)"]
-        E1 & E2 --> F1["Feature Concatenation & Fusion<br/>[N, 128]"]
-        F1 --> G1["MLP Regression Head<br/>Out Horizons: [+15m, +30m, +60m]"]
+    subgraph L2 ["2. Data Engineering"]
+        E1["Ingestion & Cleaning"]
+        E2["Temporal Featurizer"]
+        E3["Topology Graph Builder"]
     end
 
-    subgraph Analytics_Layer ["3. Explainability, Simulation & DSS Engine"]
-        G1 --> H1["Monte Carlo Dropout Engine<br/>(95% Epistemic Uncertainty Bounds)"]
-        E1 --> H2["Spatial Attention Extractor<br/>(Normalized Track Weights α_ij)"]
-        G1 --> H3["Disruption Propagation Simulator<br/>(Graph Shock Cascade Engine)"]
-        G1 --> H4["Dispatcher Mitigation Engine (DSS)<br/>(Hold-Delay Buffer Trade-Offs)"]
+    subgraph L3 ["3. Railway Graph Representation"]
+        G1["52 Station Nodes"]
+        G2["184 Track Edges"]
+        G3["Spatio-Temporal Graph Snapshots"]
     end
 
-    subgraph Service_Layer ["4. Serving & User Interface Layer"]
-        H1 & H2 & H3 & H4 --> I1["FastAPI Application (Port 8001)<br/>REST Endpoints + Auth (JWT/RBAC)"]
-        H1 & H2 & H4 --> I2["WebSocket Telemetry Manager<br/>(/ws/telemetry: 2.0s Broadcast)"]
-        I1 & I2 --> J1["React GIS Dashboard (Port 8000)<br/>Leaflet Map + Pulse Motion + Recharts"]
+    subgraph L4 ["4. ST-GATv2 + GRU Prediction Engine"]
+        M1["GATv2 Spatial Attention"]
+        M2["GRU Temporal Encoder"]
+        M3["Multi-Horizon Output Head"]
     end
+
+    subgraph L5 ["5. Railway Intelligence Services"]
+        S1["Monte Carlo Uncertainty"]
+        S2["Disruption Propagation Simulator"]
+        S3["Passenger Connection Risk"]
+        S4["Dispatcher Decision Support"]
+    end
+
+    subgraph L6 ["6. FastAPI Backend & React Dashboard"]
+        B1["FastAPI REST & WebSocket Hub"]
+        B2["Leaflet GIS Track Map"]
+        B3["Forecast & Analytics UI"]
+        B4["Mitigation Directive Banner"]
+    end
+
+    D1 & D2 & D3 --> E1
+    E1 --> E2 & E3
+    E3 --> G1 & G2
+    E2 & G1 & G2 --> G3
+    G3 --> M1 & M2
+    M1 & M2 --> M3
+    M3 --> S1 & S2 & S3 & S4
+    S1 & S2 & S3 & S4 --> B1
+    B1 ==> B2 & B3 & B4
 ```
 
 ---
