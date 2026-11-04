@@ -1,0 +1,74 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#0A0F1D',
+    'primaryTextColor': '#F8FAFC',
+    'primaryBorderColor': '#1558c9',
+    'lineColor': '#1558c9',
+    'secondaryColor': '#030407',
+    'tertiaryColor': '#0A0F1D',
+    'background': '#030407',
+    'mainBkg': '#0A0F1D',
+    'edgeLabelBackground':'#030407',
+    'clusterBkg': '#060A14',
+    'clusterBorder': '#1E293B',
+    'fontSize': '13px'
+  }
+}}%%
+flowchart LR
+
+    subgraph Inputs ["1. Input PyG Graph Batch"]
+        X["Node Feature Tensor<br/>x: [N, 88]<br/>(4 Static + 84 Temporal Lags)"]
+        EI["Track Topology Graph<br/>edge_index: [2, E]<br/>(E Track Polyline Edges)"]
+    end
+
+    subgraph Splitter ["2. Feature Splitter (_split_static_temporal)"]
+        FS["_split_static_temporal(x)"]
+        X_STAT["Static Node Attributes<br/>static: [N, 4]<br/>(lat, lon, degree, betweenness)"]
+        X_TEMP["Temporal Sequence Tensor<br/>temporal_seq: [N, 12, 7]<br/>(T=12 Lookback, 7 Feats/Step)"]
+        
+        X --> FS
+        FS -->|x[:, :4]| X_STAT
+        FS -->|x[:, 4:88].view(N,12,7)| X_TEMP
+    end
+
+    subgraph SpatialEncoder ["3. Spatial Encoder (Dual GATv2Conv Layers)"]
+        GAT1["GATv2Conv Layer 1<br/>in_channels=4, out_channels=64<br/>heads=4, concat=False<br/>+ ReLU + Dropout(0.20)"]
+        GAT2["GATv2Conv Layer 2<br/>in_channels=64, out_channels=64<br/>heads=4, concat=False<br/>+ ReLU + Dropout(0.20)"]
+        H_SPAT["Spatial Latent Embedding<br/>h_spatial: [N, 64]"]
+        ATTN["Dynamic Track Attention<br/>α_ij: [E, 4] -> Mean [E]"]
+
+        X_STAT --> GAT1
+        EI -.-> GAT1
+        GAT1 -->|h1: [N, 64]| GAT2
+        EI -.-> GAT2
+        GAT2 --> H_SPAT
+        GAT2 -.->|return_attention_weights| ATTN
+    end
+
+    subgraph TemporalEncoder ["4. Temporal Sequence Encoder (2-Layer GRU)"]
+        GRU["2-Layer Temporal GRU<br/>input_size=7, hidden_size=64<br/>num_layers=2, batch_first=True<br/>dropout=0.20"]
+        H_TEMP["Temporal Latent Embedding<br/>h_temporal: [N, 64]<br/>(Extracted from h_n[-1])"]
+
+        X_TEMP --> GRU
+        GRU --> H_TEMP
+    end
+
+    subgraph FusionHead ["5. Latent Fusion & Prediction Head"]
+        CAT["Parallel Feature Concatenation<br/>torch.cat([h_spatial, h_temporal], dim=1)<br/>combined: [N, 128]"]
+        MLP["MLP Prediction Head<br/>Linear(128 -> 64) + ReLU + Dropout(0.20)<br/>+ Linear(64 -> 3)"]
+        Y_PRED["Multi-Horizon Delay Forecasts<br/>output: [N, 3]<br/>(+15m, +30m, +60m Delays in min)"]
+
+        H_SPAT --> CAT
+        H_TEMP --> CAT
+        CAT --> MLP
+        MLP --> Y_PRED
+    end
+
+    subgraph PostProcessing ["6. Post-Processing: Epistemic Uncertainty (MCD)"]
+        MCD_LOOP["Monte Carlo Dropout Engine<br/>K=10 Stochastic Forward Passes (train mode)"]
+        MCD_OUT["Uncertainty Bounds per Horizon<br/>Mean μ: [N, 3], Std σ: [N, 3]<br/>CI_95: [μ - 1.96σ, μ + 1.96σ]"]
+
+        Y_PRED -.-> MCD_LOOP
+        MCD_LOOP --> MCD_OUT
+    end
