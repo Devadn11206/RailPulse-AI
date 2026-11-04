@@ -9,6 +9,10 @@
 
 **RailPulse AI** is an industrial-grade, spatio-temporal deep learning platform and digital twin engine designed for the German regional railway network (Hesse, Rhineland-Palatinate, and Baden-Württemberg). Covering **52 regional station nodes** and **184+ directed track edges**, RailPulse AI predicts multi-horizon cascading delay shocks ($+15\text{m}$, $+30\text{m}$, $+60\text{m}$), quantifies uncertainty via Monte Carlo Dropout, explains spatial bottlenecks via dynamic GATv2 attention ($\alpha_{ij}$), and provides automated dispatcher hold-delay mitigation directives.
 
+<p align="center">
+  <img src="docs/assets/dashboard_preview.png" alt="RailPulse AI Dashboard Preview" width="100%" />
+</p>
+
 ---
 
 ## 🌟 Key Architecture & Capabilities
