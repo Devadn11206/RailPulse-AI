@@ -1,0 +1,93 @@
+@tailwind base; @tailwind components; @tailwind utilities;
+body { @apply bg-midnight text-slate-200 font-sans; font-variant-numeric: tabular-nums; }
+.leaflet-container { background: #030407; }
+
+/* Normal edge static & animated track styling */
+.rail-edge { stroke-dasharray: 6 8; animation: flow 1.4s linear infinite; }
+.rail-edge-severe { stroke-dasharray: 6 8; animation: flowFast 0.8s linear infinite; stroke: #EF4444 !important; }
+.rail-edge-shocked { stroke-dasharray: 4 6; animation: flowFast 0.6s linear infinite; stroke: #d4ff24 !important; }
+
+/* High-Attention Bottleneck Track Segment Halo */
+.rail-edge-high-attention {
+  filter: drop-shadow(0 0 6px rgba(212, 255, 36, 0.85));
+  stroke-dasharray: 5 7;
+  animation: flow 1.0s linear infinite;
+}
+
+@keyframes flow { to { stroke-dashoffset: -28; } }
+@keyframes flowFast { to { stroke-dashoffset: -28; } }
+
+@media (prefers-reduced-motion: reduce) { .rail-edge, .rail-edge-severe, .rail-edge-shocked, .rail-edge-high-attention, .animate-ping { animation: none; } }
+
+.rp-popup .leaflet-popup-content-wrapper { background: #0A0F1D; color: #e6ebf7; border: 1px solid #1558c9; border-radius: 10px; }
+.rp-popup .leaflet-popup-tip { background: #0A0F1D; border: 1px solid #1558c9; }
+.rp-popup .leaflet-popup-content { margin: 12px; min-width: 220px; }
+.rp-popup .leaflet-popup-close-button { color: #7f8cab; }
+
+/* Tooltip for track segment hover */
+.track-tooltip {
+  background: #0A0F1D !important;
+  color: #e6ebf7 !important;
+  border: 1px solid #1558c9 !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 4px 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6) !important;
+}
+
+/* Disruption Shock Ripple Effect */
+@keyframes shockPulse {
+  0% {
+    r: 10;
+    opacity: 0.95;
+    stroke-width: 4;
+  }
+  50% {
+    r: 32;
+    opacity: 0.65;
+    stroke-width: 3;
+  }
+  100% {
+    r: 64;
+    opacity: 0;
+    stroke-width: 1;
+  }
+}
+
+@keyframes shockPulseSecondary {
+  0% {
+    r: 18;
+    opacity: 0.8;
+    stroke-width: 3;
+  }
+  60% {
+    r: 48;
+    opacity: 0.4;
+    stroke-width: 2;
+  }
+  100% {
+    r: 85;
+    opacity: 0;
+    stroke-width: 0.5;
+  }
+}
+
+.shock-wave-circle {
+  animation: shockPulse 1.8s cubic-bezier(0.1, 0.7, 0.3, 1) infinite;
+  transform-origin: center;
+}
+
+.shock-wave-circle-outer {
+  animation: shockPulseSecondary 2.4s cubic-bezier(0.1, 0.7, 0.3, 1) infinite;
+  animation-delay: 0.4s;
+  transform-origin: center;
+}
+
+/* Pulsing radar dot for moving telemetry pulse */
+.pulse-telemetry-dot {
+  filter: drop-shadow(0 0 6px #d4ff24);
+}
+.pulse-telemetry-dot-warn {
+  filter: drop-shadow(0 0 6px #EF4444);
+}

@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # Fast-API ST-GNN AI Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: railpulse-backend
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - RAILPULSE_ENV=production
+      - API_HOST=0.0.0.0
+      - API_PORT=8001
+      - JWT_SECRET_KEY=railpulse-production-secret-change-in-prod-xyz789
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    networks:
+      - railpulse-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # React Industrial GIS Dashboard Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: railpulse-frontend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - railpulse-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+
+  # Optional Geo-Spatial PostGIS Database Service
+  postgis:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: railpulse-postgis
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=railpulse
+      - POSTGRES_USER=railpulse_admin
+      - POSTGRES_PASSWORD=railpulse_secure_pass
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+    networks:
+      - railpulse-network
+
+networks:
+  railpulse-network:
+    name: railpulse-network
+    driver: bridge
+
+volumes:
+  postgis_data:
+    name: railpulse-postgis-data
+

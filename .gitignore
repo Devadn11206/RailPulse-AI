@@ -1,0 +1,59 @@
+# Byte-compiled / optimized / URL-encoded files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyd
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# VS Code / IDE
+.vscode/
+.claude/
+.idea/
+
+# Large Datasets (Track with DVC or download via pipeline)
+data/raw/
+*.zip
+*.parquet
+*.npz
+
+# Frontend build & dependencies
+railpulse-ai/node_modules/
+railpulse-ai/dist/
+railpulse-ai/.env
+
+# Local logs
+*.log

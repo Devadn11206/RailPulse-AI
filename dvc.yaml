@@ -1,0 +1,24 @@
+# RailPulse AI DVC Pipeline
+stages:
+  prepare_data:
+    cmd: python src/data_ingestion/process_real_corridor_data.py
+    deps:
+      - data/raw/delays/data-2026-10.parquet
+      - data/raw/gtfs/germany_rail.zip
+      - src/data_ingestion/gtfs_ingestion.py
+      - src/data_ingestion/bahnvorhersage_ingestion.py
+    outs:
+      - data/processed/frankfurt_corridor_features.npz
+
+  train_stgnn:
+    cmd: python src/training/train_st_gnn.py
+    deps:
+      - data/processed/frankfurt_corridor_features.npz
+      - src/models/st_gnn.py
+      - src/training/st_gnn_trainer.py
+    outs:
+      - models/st_gnn_best.pth
+    metrics:
+      - data/processed/st_gnn_benchmark_results.json:
+          cache: false
+
