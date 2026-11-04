@@ -312,6 +312,11 @@ The following benchmark results reflect evaluation over **7,679 chronological te
 
 ## 13. Dashboard Preview & User Workflow
 
+<p align="center">
+  <img src="docs/assets/dashboard_preview.png" alt="RailPulse AI Control Center with Regional Network and Shock Simulation" width="100%" />
+</p>
+<p align="center"><em>Figure 4: Real-time GIS operational control center running against the 52-station regional network during a simulated network shock with GATv2 track attention overlays and Dispatcher Decision Support.</em></p>
+
 The web client (`railpulse-ai/`) provides an interactive interface for exploring network state:
 
 1. **Topology Selection:** Toggle between **Core Corridor (10)** and **Regional Network (52)** in the header bar.
