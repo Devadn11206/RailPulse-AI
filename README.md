@@ -188,6 +188,13 @@ sequenceDiagram
 
 The neural network core (`RailPulseSTGNN` in `src/models/st_gnn.py`) implements a hybrid architecture that disentangles spatial topology propagation from temporal sequence dynamics:
 
+<p align="center">
+  <img src="docs/architecture/railpulse_stgatv2_gru_architecture.png" alt="RailPulse ST-GATv2 + GRU Neural Network Architecture" width="100%" />
+</p>
+<p align="center"><em>Figure 3: Detailed ST-GATv2 + GRU Neural Network Architecture showing the feature splitter, parallel dual-layer GATv2Conv spatial attention, parallel 2-layer GRU sequence encoder, latent concatenation fusion [128], MLP regression head, and post-processing Monte Carlo Dropout uncertainty estimation.</em></p>
+
+The architecture is also specified in editable Mermaid format at [`docs/architecture/railpulse_stgatv2_gru_architecture.mmd`](docs/architecture/railpulse_stgatv2_gru_architecture.mmd).
+
 $$\mathbf{x}_v = \left[ \mathbf{x}_v^{\text{static}} \,\|\, \text{vec}(\mathbf{X}_v^{\text{temporal}}) \right] \in \mathbb{R}^{4 + 84} = \mathbb{R}^{88}$$
 
 ### 7.1 Spatial Pathway: Dynamic GATv2 Convolutions
