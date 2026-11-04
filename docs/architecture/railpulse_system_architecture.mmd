@@ -1,0 +1,121 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#0A0F1D',
+    'primaryTextColor': '#e6ebf7',
+    'primaryBorderColor': '#1558c9',
+    'lineColor': '#1558c9',
+    'secondaryColor': '#030407',
+    'tertiaryColor': '#0A0F1D',
+    'background': '#030407',
+    'mainBkg': '#0A0F1D',
+    'edgeLabelBackground':'#0A0F1D',
+    'clusterBkg': '#050914',
+    'clusterBorder': '#1558c9',
+    'fontSize': '12px'
+  }
+}}%%
+flowchart TD
+
+    subgraph Layer1 ["1. Data Sources Layer"]
+        DS_GTFS["Germany GTFS Static Railway Feed<br/>(stops.txt, stop_times.txt, routes.txt)"]
+        DS_DELAYS["DB Historical Train Delay Archive<br/>(data-2026-10.parquet, Arrival/Departure Logs)"]
+        DS_WEATHER["DWD Hourly Weather Context<br/>(TU_01420 Stations, Precipitation, Temp)"]
+    end
+
+    subgraph Layer2 ["2. Data Engineering & Preprocessing Layer"]
+        ENG_INGEST["GTFS & Delay Ingestion Pipeline<br/>(src/data_ingestion/gtfs_ingestion.py)"]
+        ENG_CLEAN["Data Cleaner & Outlier Filter<br/>(src/preprocessing/data_cleaner.py)"]
+        ENG_TEMP["Temporal Feature Builder<br/>(12-Step Lookback, Sin/Cos Hour/DoW, Rolling Means)"]
+        ENG_GRAPH["Static Railway Graph Builder<br/>(EVA IDs, WGS84 Coords, Track Edges)"]
+        
+        DS_GTFS --> ENG_INGEST
+        DS_DELAYS --> ENG_INGEST
+        DS_WEATHER --> ENG_INGEST
+        ENG_INGEST --> ENG_CLEAN
+        ENG_CLEAN --> ENG_TEMP
+        ENG_CLEAN --> ENG_GRAPH
+    end
+
+    subgraph Layer3 ["3. Railway Network Representation Layer"]
+        NET_NODES["52 Regional Station Nodes<br/>(EVA IDs: 8000105 Frankfurt to 8000261 Munich)<br/>Static Attributes: [lat, lon, degree, betweenness]"]
+        NET_EDGES["184+ Directed Track Edges<br/>(edge_index: [2, E], edge_attr: travel_time_min)"]
+        NET_SNAP["PyG RailwayGraphDataset Snapshots<br/>Node Feature Tensor: [N, 88]<br/>(4 Static Features + 84 Flattened Temporal Lags)"]
+        
+        ENG_GRAPH --> NET_NODES
+        ENG_GRAPH --> NET_EDGES
+        ENG_TEMP & NET_NODES & NET_EDGES --> NET_SNAP
+    end
+
+    subgraph Layer4 ["4. ML Prediction Engine (ST-GATv2 + GRU)"]
+        direction TB
+        SPLIT["Feature Splitter (_split_static_temporal)<br/>x: [N, 88] -> static: [N, 4], temporal: [N, 12, 7]"]
+        
+        subgraph SpatialPath ["Spatial Path (Dual GATv2Conv)"]
+            GAT1["GATv2Conv 1 (in=4, out=64, heads=4)<br/>+ ReLU + Dropout(0.20)"]
+            GAT2["GATv2Conv 2 (in=64, out=64, heads=4)<br/>return_attention_weights=True<br/>Outputs: h_spatial [N, 64] & α_ij Attention"]
+            GAT1 --> GAT2
+        end
+        
+        subgraph TemporalPath ["Temporal Path (Recurrent Sequence)"]
+            GRU["2-Layer Temporal GRU Encoder<br/>(input_size=7, hidden_size=64, num_layers=2)<br/>Outputs: h_temporal [N, 64] from final step T=12"]
+        end
+        
+        FUSION["Latent Feature Fusion<br/>[h_spatial || h_temporal] -> [N, 128]"]
+        MLP_HEAD["MLP Multi-Horizon Regression Head<br/>Linear(128->64) + ReLU + Dropout + Linear(64->3)<br/>Outputs: Delay Forecasts [+15m, +30m, +60m]"]
+        AMP["Automatic Mixed Precision (torch.amp.autocast)<br/>Guarantees Peak GPU VRAM < 1.5 GB"]
+        
+        NET_SNAP --> SPLIT
+        SPLIT -->|static: [N, 4]| GAT1
+        SPLIT -->|temporal: [N, 12, 7]| GRU
+        GAT2 --> FUSION
+        GRU --> FUSION
+        FUSION --> MLP_HEAD
+        AMP -.-> GAT1 & GAT2 & GRU & MLP_HEAD
+    end
+
+    subgraph Layer5 ["5. Railway Intelligence & Analytics Layer"]
+        MCD["Monte Carlo Dropout Uncertainty Engine<br/>(10 Stochastic Forward Passes with Dropout Active)<br/>Mean Delay & 95% Confidence Bounds (CI_95)"]
+        XAI["GATv2 Spatial Attention & XAI Engine<br/>(Normalized Track Coefficients α_ij & Upstream Attribution)"]
+        SIM["Disruption Propagation Simulator<br/>(Shock Injection at Node, 1-Hop & 2-Hop BFS Cascade Delta)"]
+        RISK["Passenger Connection Risk Analyzer<br/>(Effective Buffer B_eff = M_sched - d_inc, Normal CDF Miss Prob)"]
+        DSS["Dispatcher Mitigation Engine (DSS)<br/>(Buffer Trade-offs: HOLD h* in [2,8]m, DISPATCH, REROUTE)"]
+        
+        MLP_HEAD --> MCD
+        GAT2 --> XAI
+        MLP_HEAD --> SIM
+        MLP_HEAD --> RISK
+        RISK & MLP_HEAD --> DSS
+    end
+
+    subgraph Layer6 ["6. Backend & Serving Layer (FastAPI Port 8001)"]
+        API_MAIN["FastAPI Application (src/api/main.py)<br/>CORS Middleware + OAuth2 JWT / RBAC"]
+        EP_PRED["REST: /api/v1/predict/corridor & /predict/station<br/>Multi-horizon delays, MCD bounds, α_ij attributions"]
+        EP_SIM["REST: /api/v1/simulate/disruption<br/>Shock origin delta and downstream propagated delays"]
+        EP_CONN["REST: /api/v1/passenger/connections<br/>Monitored transfer vulnerabilities and miss probabilities"]
+        EP_TOPO["REST: /api/v1/topology?scale=core|regional<br/>52 Station GeoJSON and 184 track polylines"]
+        WS_MGR["WebSocket Telemetry Manager (/ws/telemetry)<br/>2.0s Continuous Sub-Second Micro-Batched Snapshot Broadcast"]
+        
+        MCD & XAI --> EP_PRED
+        SIM --> EP_SIM
+        RISK --> EP_CONN
+        NET_NODES & NET_EDGES --> EP_TOPO
+        EP_PRED & DSS --> WS_MGR
+        API_MAIN --- EP_PRED & EP_SIM & EP_CONN & EP_TOPO & WS_MGR
+    end
+
+    subgraph Layer7 ["7. Industrial React GIS Dashboard (Vite Port 8000)"]
+        UI_HEADER["Corridor Header<br/>Scale Selector [Core 10 | Regional 52], GNN Status, Search"]
+        UI_BANNER["AI Dispatcher Recommendation Banner<br/>Glowing Lime Shield, HOLD / DISPATCH / REROUTE Badges"]
+        UI_MAP["CorridorMap (Leaflet GIS Canvas)<br/>• 52 Interactive WGS84 Station Markers<br/>• Dynamic SVG Polyline Moving Pulse Dots<br/>• GATv2 Bottleneck Outer Halos (α > 0.75)<br/>• Disruption Shock Expanding Ripple Wave Rings"]
+        UI_CHART["DelayForecastChart (Recharts Canvas)<br/>• Historical Delay Curve (t-60m to t0)<br/>• Shaded Monte Carlo 95% Uncertainty Band<br/>• Mitigated Forecast Overlay (Simulated Directive)"]
+        UI_CONN["Passenger Impact & Station List Panels<br/>Connection Miss Risk Meters, Transfer Buffers, Station Sorting"]
+        UI_SIM_MODAL["Disruption Simulator Modal<br/>Shock Magnitude Slider, Target Hub Selector, Cascade Run"]
+        
+        EP_TOPO --> UI_MAP
+        EP_PRED --> UI_CHART
+        EP_CONN --> UI_CONN
+        WS_MGR ==>|Live 2.0s Telemetry Stream| UI_BANNER & UI_MAP & UI_CHART
+        UI_SIM_MODAL -->|POST /simulate/disruption| EP_SIM
+        EP_SIM -->|Cascading Ripple Wave| UI_MAP
+    end
